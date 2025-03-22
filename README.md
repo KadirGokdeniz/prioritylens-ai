@@ -4,7 +4,24 @@
 
 PriorityLens-AI is a sophisticated task management application that leverages the Pareto Principle (80/20 rule) to transform how you prioritize work. By analyzing your tasks through multiple dimensions including impact, urgency, effort, and strategic alignment, it identifies the vital few tasks that will deliver maximum results with minimal time investment.
 
-![Pareto Principle in Action](https://via.placeholder.com/800x400?text=Pareto+Principle+Visualization)
+<table>
+  <tr>
+    <td><img src="./images/1.png" alt="Project Management Interface" width="100%"></td>
+    <td><img src="./images/2.png" alt="Task Management Interface" width="100%"></td>
+  </tr>
+  <tr>
+    <td><em>Project Management Interface - Creating New Projects in PriorityLens-AI</em></td>
+    <td><em>Task Management Interface - Adding and Scoring Tasks with Impact, Urgency, Effort, and Alignment Metrics</em></td>
+  </tr>
+  <tr>
+    <td><img src="./images/3.png" alt="Pareto Analysis Dashboard" width="100%"></td>
+    <td><img src="./images/4.png" alt="Prioritization Recommendations" width="100%"></td>
+  </tr>
+  <tr>
+    <td><em>Pareto Analysis Dashboard - Task Impact/Effort Distribution and Four Quadrant Prioritization Matrix</em></td>
+    <td><em>Prioritization Recommendations - Pareto Principle Analysis Results and Action Plan Categories</em></td>
+  </tr>
+</table>
 
 ## The Power of the Pareto Principle in Your Workflow
 

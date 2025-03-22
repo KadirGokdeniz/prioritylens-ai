@@ -9,18 +9,19 @@ from psycopg2 import sql
 from psycopg2.extras import RealDictCursor
 import datetime
 
-# Veritabanı bağlantı bilgilerini alma
+# Database connection information
 DATABASE_URL = "postgresql://postgres:qeqe@localhost:5432/prioritylens"
-# Veritabanı bağlantı fonksiyonu
+
+# Database connection function
 def get_db_connection():
     try:
         conn = psycopg2.connect(DATABASE_URL)
         return conn
     except Exception as e:
-        print(f"Veritabanı bağlantısında hata: {e}")
+        print(f"Database connection error: {e}")
         return None
 
-# Veritabanı tablolarını oluştur (eğer yoksa)
+# Create database tables (if they don't exist)
 def create_tables_if_not_exist():
     conn = get_db_connection()
     if not conn:
@@ -28,7 +29,7 @@ def create_tables_if_not_exist():
     
     try:
         with conn.cursor() as cur:
-            # Users tablosu
+            # Users table
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS users (
                     id SERIAL PRIMARY KEY,
@@ -40,7 +41,7 @@ def create_tables_if_not_exist():
                 );
             """)
             
-            # Projects tablosu
+            # Projects table
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS projects (
                     id SERIAL PRIMARY KEY,
@@ -53,7 +54,7 @@ def create_tables_if_not_exist():
                 );
             """)
             
-            # Tasks tablosu
+            # Tasks table
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS tasks (
                     id SERIAL PRIMARY KEY,
@@ -74,13 +75,13 @@ def create_tables_if_not_exist():
             conn.commit()
             return True
     except Exception as e:
-        print(f"Tablo oluşturmada hata: {e}")
+        print(f"Error creating tables: {e}")
         conn.rollback()
         return False
     finally:
         conn.close()
 
-# Örnek kullanıcı oluştur (sadece test amaçlı)
+# Create demo user (for testing purposes only)
 def create_demo_user():
     conn = get_db_connection()
     if not conn:
@@ -88,12 +89,12 @@ def create_demo_user():
     
     try:
         with conn.cursor() as cur:
-            # Kullanıcıyı kontrol et
+            # Check if user exists
             cur.execute("SELECT id FROM users WHERE username = %s", ("demo_user",))
             user = cur.fetchone()
             
             if not user:
-                # Kullanıcı yoksa oluştur
+                # Create user if not exists
                 cur.execute("""
                     INSERT INTO users (username, email, password_hash)
                     VALUES (%s, %s, %s)
@@ -105,17 +106,17 @@ def create_demo_user():
             else:
                 return user[0]
     except Exception as e:
-        print(f"Demo kullanıcı oluşturmada hata: {e}")
+        print(f"Error creating demo user: {e}")
         conn.rollback()
         return None
     finally:
         conn.close()
 
-# Proje ekleme fonksiyonu
+# Add project function
 def add_project(user_id, name, description=""):
     conn = get_db_connection()
     if not conn:
-        return False, "Veritabanı bağlantısı kurulamadı"
+        return False, "Could not establish database connection"
     
     try:
         with conn.cursor() as cur:
@@ -126,18 +127,18 @@ def add_project(user_id, name, description=""):
             """, (user_id, name, description))
             project_id = cur.fetchone()[0]
             conn.commit()
-            return True, f"Proje başarıyla eklendi! ID: {project_id}"
+            return True, f"Project added successfully! ID: {project_id}"
     except Exception as e:
         conn.rollback()
-        return False, f"Proje eklenirken hata oluştu: {e}"
+        return False, f"Error adding project: {e}"
     finally:
         conn.close()
 
-# Görev ekleme fonksiyonu
+# Add task function
 def add_task(project_id, name, description, impact_score, urgency_score, effort_score, alignment_score, due_date=None):
     conn = get_db_connection()
     if not conn:
-        return False, "Veritabanı bağlantısı kurulamadı"
+        return False, "Could not establish database connection"
     
     try:
         with conn.cursor() as cur:
@@ -148,14 +149,14 @@ def add_task(project_id, name, description, impact_score, urgency_score, effort_
             """, (project_id, name, description, impact_score, urgency_score, effort_score, alignment_score, due_date))
             task_id = cur.fetchone()[0]
             conn.commit()
-            return True, f"Görev başarıyla eklendi! ID: {task_id}"
+            return True, f"Task added successfully! ID: {task_id}"
     except Exception as e:
         conn.rollback()
-        return False, f"Görev eklenirken hata oluştu: {e}"
+        return False, f"Error adding task: {e}"
     finally:
         conn.close()
 
-# Projeleri getir
+# Get projects
 def get_projects(user_id):
     conn = get_db_connection()
     if not conn:
@@ -171,12 +172,12 @@ def get_projects(user_id):
             """, (user_id,))
             return cur.fetchall()
     except Exception as e:
-        print(f"Projeleri getirirken hata: {e}")
+        print(f"Error retrieving projects: {e}")
         return []
     finally:
         conn.close()
 
-# Proje için görevleri getir
+# Get tasks for a project
 def get_tasks(project_id):
     conn = get_db_connection()
     if not conn:
@@ -192,61 +193,61 @@ def get_tasks(project_id):
             """, (project_id,))
             return cur.fetchall()
     except Exception as e:
-        print(f"Görevleri getirirken hata: {e}")
+        print(f"Error retrieving tasks: {e}")
         return []
     finally:
         conn.close()
 
-# Pareto puanı hesaplama
+# Calculate Pareto score
 def calculate_pareto_score(impact, urgency, alignment, effort):
-    # Etki ve Aciliyet pozitif, Çaba ise negatif etkisi var
-    # Stratejik uyum pozitif etki eder
+    # Impact and Urgency have positive effects, Effort has negative effect
+    # Strategic alignment has a positive effect
     value = (impact * 0.4) + (urgency * 0.3) + (alignment * 0.3)
     efficiency = value / effort if effort > 0 else value
-    return efficiency * 10  # 0-100 arası bir puana dönüştür
+    return efficiency * 10  # Convert to a 0-100 scale
 
-# Pareto analizi yap
+# Perform Pareto analysis
 def perform_pareto_analysis(tasks):
     if not tasks:
         return None, None
     
     df = pd.DataFrame(tasks)
     
-    # Pareto skoru hesapla
+    # Calculate Pareto score
     df['pareto_score'] = df.apply(lambda row: calculate_pareto_score(
         row['impact_score'], row['urgency_score'], row['alignment_score'], row['effort_score']), axis=1)
     
-    # Skorları büyükten küçüğe sırala
+    # Sort scores in descending order
     df = df.sort_values('pareto_score', ascending=False)
     
-    # Kümülatif toplam ve yüzde hesapla
+    # Calculate cumulative total and percentage
     total_score = df['pareto_score'].sum()
     df['cumulative_score'] = df['pareto_score'].cumsum()
     df['score_percentage'] = df['pareto_score'] / total_score * 100
     df['cumulative_percentage'] = df['cumulative_score'] / total_score * 100
     
-    # Pareto grafiği oluştur
+    # Create Pareto chart
     fig = go.Figure()
     
-    # Bar grafiği - Pareto skorları
+    # Bar chart - Pareto scores
     fig.add_trace(go.Bar(
         x=df['name'],
         y=df['pareto_score'],
-        name='Pareto Skoru',
+        name='Pareto Score',
         marker_color='#3498db'
     ))
     
-    # Çizgi grafiği - Kümülatif yüzde
+    # Line chart - Cumulative percentage
     fig.add_trace(go.Scatter(
         x=df['name'],
         y=df['cumulative_percentage'],
-        name='Kümülatif Yüzde',
+        name='Cumulative Percentage',
         marker_color='#e74c3c',
         mode='lines+markers',
         yaxis='y2'
     ))
     
-    # 80% çizgisi
+    # 80% line
     fig.add_shape(
         type="line",
         x0=-0.5,
@@ -257,13 +258,13 @@ def perform_pareto_analysis(tasks):
         yref='y2'
     )
     
-    # Grafik düzeni
+    # Chart layout
     fig.update_layout(
-        title='Pareto Analizi: Görevlerin Etki/Çaba Dağılımı',
-        xaxis_title='Görevler',
-        yaxis_title='Pareto Skoru',
+        title='Pareto Analysis: Task Impact/Effort Distribution',
+        xaxis_title='Tasks',
+        yaxis_title='Pareto Score',
         yaxis2=dict(
-            title='Kümülatif Yüzde (%)',
+            title='Cumulative Percentage (%)',
             overlaying='y',
             side='right',
             range=[0, 100]
@@ -279,7 +280,7 @@ def perform_pareto_analysis(tasks):
         bargap=0.15
     )
     
-    # Dört çeyrek matris grafiği
+    # Four quadrant matrix chart
     quadrant_fig = px.scatter(
         df,
         x='effort_score',
@@ -290,15 +291,15 @@ def perform_pareto_analysis(tasks):
         hover_name='name',
         size_max=20,
         labels={
-            'effort_score': 'Çaba (1-10)',
-            'impact_score': 'Etki (1-10)',
-            'urgency_score': 'Aciliyet',
-            'pareto_score': 'Pareto Skoru'
+            'effort_score': 'Effort (1-10)',
+            'impact_score': 'Impact (1-10)',
+            'urgency_score': 'Urgency',
+            'pareto_score': 'Pareto Score'
         },
-        title='Dört Çeyrek Analizi: Etki vs Çaba'
+        title='Four Quadrant Analysis: Impact vs Effort'
     )
     
-    # Çeyrek bölümleri için dikey ve yatay çizgiler
+    # Vertical and horizontal lines for quadrant divisions
     quadrant_fig.add_shape(
         type="line",
         x0=5.5,
@@ -317,64 +318,64 @@ def perform_pareto_analysis(tasks):
         line=dict(color="gray", width=1, dash="dash")
     )
     
-    # Çeyrek etiketleri
-    quadrant_fig.add_annotation(x=3, y=8, text="HEMEN YAP", showarrow=False, font=dict(size=14, color="green"))
-    quadrant_fig.add_annotation(x=8, y=8, text="PLANLA", showarrow=False, font=dict(size=14, color="blue"))
-    quadrant_fig.add_annotation(x=3, y=3, text="DELEGASYON", showarrow=False, font=dict(size=14, color="orange"))
-    quadrant_fig.add_annotation(x=8, y=3, text="ELEME", showarrow=False, font=dict(size=14, color="red"))
+    # Quadrant labels
+    quadrant_fig.add_annotation(x=3, y=8, text="DO NOW", showarrow=False, font=dict(size=14, color="green"))
+    quadrant_fig.add_annotation(x=8, y=8, text="PLAN", showarrow=False, font=dict(size=14, color="blue"))
+    quadrant_fig.add_annotation(x=3, y=3, text="DELEGATE", showarrow=False, font=dict(size=14, color="orange"))
+    quadrant_fig.add_annotation(x=8, y=3, text="ELIMINATE", showarrow=False, font=dict(size=14, color="red"))
     
     quadrant_fig.update_layout(height=600)
     
     return fig, quadrant_fig
 
-# Önceliklendirme önerileri
+# Prioritization recommendations
 def get_recommendations(tasks):
     if not tasks:
-        return "Henüz görev eklenmemiş. Öncelik önerileri için görev ekleyin."
+        return "No tasks added yet. Add tasks to get priority recommendations."
     
     df = pd.DataFrame(tasks)
     
-    # Pareto skoru hesapla
+    # Calculate Pareto score
     df['pareto_score'] = df.apply(lambda row: calculate_pareto_score(
         row['impact_score'], row['urgency_score'], row['alignment_score'], row['effort_score']), axis=1)
     
-    # Skorları büyükten küçüğe sırala
+    # Sort scores in descending order
     df = df.sort_values('pareto_score', ascending=False)
     
-    # Kümülatif toplam ve yüzde hesapla
+    # Calculate cumulative total and percentage
     total_score = df['pareto_score'].sum()
     df['cumulative_score'] = df['pareto_score'].cumsum()
     df['cumulative_percentage'] = df['cumulative_score'] / total_score * 100
     
-    # 80% eşiğini bul
+    # Find 80% threshold
     top_tasks = df[df['cumulative_percentage'] <= 80]
     if len(top_tasks) == 0:
-        top_tasks = df.iloc[:1]  # En azından bir görev
+        top_tasks = df.iloc[:1]  # At least one task
     
-    # Görev sayısı
+    # Task count
     total_tasks = len(df)
     top_task_count = len(top_tasks)
     percentage = (top_task_count / total_tasks) * 100
     
     recommendations = f"""
-    # 📊 Pareto Prensibi Analizi
+    # 📊 Pareto Principle Analysis
 
-    ## 🔍 Özet
-    Toplam {total_tasks} görev arasından, sadece {top_task_count} görev (%{percentage:.1f}) sonuçların %80'ini oluşturuyor.
+    ## 🔍 Summary
+    Out of {total_tasks} tasks, only {top_task_count} tasks ({percentage:.1f}%) generate 80% of results.
     
-    ## 🎯 Öncelikli Görevler
-    Zamanınızın çoğunu şu görevlere ayırmalısınız:
+    ## 🎯 Priority Tasks
+    You should dedicate most of your time to these tasks:
     """
     
     for i, task in enumerate(top_tasks.itertuples(), 1):
-        recommendations += f"\n{i}. **{task.name}** (Pareto Skoru: {task.pareto_score:.1f})"
+        recommendations += f"\n{i}. **{task.name}** (Pareto Score: {task.pareto_score:.1f})"
     
-    # Dört çeyrek analizi için öneriler
+    # Four quadrant analysis recommendations
     recommendations += """
     
-    ## 📋 Eylem Planı
+    ## 📋 Action Plan
     
-    ### ✅ HEMEN YAP (Yüksek Etki, Düşük Çaba)
+    ### ✅ DO NOW (High Impact, Low Effort)
     """
     
     high_impact_low_effort = df[(df['impact_score'] > 5) & (df['effort_score'] <= 5)]
@@ -382,11 +383,11 @@ def get_recommendations(tasks):
         for task in high_impact_low_effort.itertuples():
             recommendations += f"\n- **{task.name}**"
     else:
-        recommendations += "\n- Bu kategoride görev bulunamadı."
+        recommendations += "\n- No tasks found in this category."
     
     recommendations += """
     
-    ### 📅 PLANLA (Yüksek Etki, Yüksek Çaba)
+    ### 📅 PLAN (High Impact, High Effort)
     """
     
     high_impact_high_effort = df[(df['impact_score'] > 5) & (df['effort_score'] > 5)]
@@ -394,11 +395,11 @@ def get_recommendations(tasks):
         for task in high_impact_high_effort.itertuples():
             recommendations += f"\n- **{task.name}**"
     else:
-        recommendations += "\n- Bu kategoride görev bulunamadı."
+        recommendations += "\n- No tasks found in this category."
     
     recommendations += """
     
-    ### 👥 DELEGASYON (Düşük Etki, Düşük Çaba)
+    ### 👥 DELEGATE (Low Impact, Low Effort)
     """
     
     low_impact_low_effort = df[(df['impact_score'] <= 5) & (df['effort_score'] <= 5)]
@@ -406,11 +407,11 @@ def get_recommendations(tasks):
         for task in low_impact_low_effort.itertuples():
             recommendations += f"\n- **{task.name}**"
     else:
-        recommendations += "\n- Bu kategoride görev bulunamadı."
+        recommendations += "\n- No tasks found in this category."
     
     recommendations += """
     
-    ### ❌ ELEME (Düşük Etki, Yüksek Çaba)
+    ### ❌ ELIMINATE (Low Impact, High Effort)
     """
     
     low_impact_high_effort = df[(df['impact_score'] <= 5) & (df['effort_score'] > 5)]
@@ -418,91 +419,91 @@ def get_recommendations(tasks):
         for task in low_impact_high_effort.itertuples():
             recommendations += f"\n- **{task.name}**"
     else:
-        recommendations += "\n- Bu kategoride görev bulunamadı."
+        recommendations += "\n- No tasks found in this category."
     
     return recommendations
 
-# Ana uygulama fonksiyonu
+# Main application function
 def prioritylens_app():
-    # Demo kullanıcı oluştur
+    # Create demo user
     create_tables_if_not_exist()
     user_id = create_demo_user()
     
     if user_id is None:
-        return gr.Markdown("Veritabanına bağlantı kurulamadı veya demo kullanıcı oluşturulamadı!")
+        return gr.Markdown("Could not connect to database or create demo user!")
     
-    with gr.Blocks(title="PriorityLens-AI: Pareto Prensibi Temelli İş Önceliklendirme") as app:
+    with gr.Blocks(title="PriorityLens-AI: Pareto Principle-Based Work Prioritization") as app:
         gr.Markdown("""
         # 🎯 PriorityLens-AI
-        ## Pareto Prensibi Temelli İş Önceliklendirme Sistemi
+        ## Pareto Principle-Based Work Prioritization System
         
-        İş yaşamınızdaki görevleri Pareto Prensibi (80/20 kuralı) ile analiz ederek, 
-        zamanınızın %20'sini harcayarak sonuçların %80'ini elde edebileceğiniz görevleri belirleyin.
+        Analyze tasks in your work life using the Pareto Principle (80/20 rule) to
+        identify tasks that will allow you to achieve 80% of results by spending just 20% of your time.
         """)
         
-        with gr.Tab("Proje Yönetimi"):
+        with gr.Tab("Project Management"):
             with gr.Row():
                 with gr.Column(scale=1):
-                    project_name_input = gr.Textbox(label="Proje Adı")
-                    project_desc_input = gr.Textbox(label="Proje Açıklaması", lines=3)
-                    project_add_btn = gr.Button("Proje Ekle", variant="primary")
+                    project_name_input = gr.Textbox(label="Project Name")
+                    project_desc_input = gr.Textbox(label="Project Description", lines=3)
+                    project_add_btn = gr.Button("Add Project", variant="primary")
                     project_status = gr.Markdown("")
                 
                 with gr.Column(scale=2):
-                    projects_dropdown = gr.Dropdown(label="Projeler", choices=[], interactive=True)
-                    refresh_projects_btn = gr.Button("Projeleri Yenile")
+                    projects_dropdown = gr.Dropdown(label="Projects", choices=[], interactive=True)
+                    refresh_projects_btn = gr.Button("Refresh Projects")
         
-        with gr.Tab("Görev Yönetimi"):
+        with gr.Tab("Task Management"):
             with gr.Row():
                 with gr.Column():
-                    task_name_input = gr.Textbox(label="Görev Adı")
-                    task_desc_input = gr.Textbox(label="Görev Açıklaması", lines=2)
+                    task_name_input = gr.Textbox(label="Task Name")
+                    task_desc_input = gr.Textbox(label="Task Description", lines=2)
                     
                     with gr.Row():
-                        impact_slider = gr.Slider(minimum=1, maximum=10, step=1, label="Etki Puanı (1-10)", value=5)
-                        urgency_slider = gr.Slider(minimum=1, maximum=10, step=1, label="Aciliyet Puanı (1-10)", value=5)
+                        impact_slider = gr.Slider(minimum=1, maximum=10, step=1, label="Impact Score (1-10)", value=5)
+                        urgency_slider = gr.Slider(minimum=1, maximum=10, step=1, label="Urgency Score (1-10)", value=5)
                     
                     with gr.Row():
-                        effort_slider = gr.Slider(minimum=1, maximum=10, step=1, label="Çaba Puanı (1-10)", value=5)
-                        alignment_slider = gr.Slider(minimum=1, maximum=10, step=1, label="Stratejik Uyum Puanı (1-10)", value=5)
+                        effort_slider = gr.Slider(minimum=1, maximum=10, step=1, label="Effort Score (1-10)", value=5)
+                        alignment_slider = gr.Slider(minimum=1, maximum=10, step=1, label="Strategic Alignment Score (1-10)", value=5)
                     
-                    due_date_input = gr.Textbox(label="Son Tarih (YYYY-MM-DD, opsiyonel)")
-                    task_add_btn = gr.Button("Görev Ekle", variant="primary")
+                    due_date_input = gr.Textbox(label="Due Date (YYYY-MM-DD, optional)")
+                    task_add_btn = gr.Button("Add Task", variant="primary")
                     task_status = gr.Markdown("")
                 
                 with gr.Column():
                     tasks_table = gr.DataFrame(
-                        headers=["ID", "Görev", "Etki", "Aciliyet", "Çaba", "Uyum", "Durum", "Son Tarih"],
-                        label="Proje Görevleri"
+                        headers=["ID", "Task", "Impact", "Urgency", "Effort", "Alignment", "Status", "Due Date"],
+                        label="Project Tasks"
                     )
-                    refresh_tasks_btn = gr.Button("Görevleri Yenile")
+                    refresh_tasks_btn = gr.Button("Refresh Tasks")
         
-        with gr.Tab("Pareto Analizi"):
+        with gr.Tab("Pareto Analysis"):
             with gr.Row():
-                analyze_btn = gr.Button("Pareto Analizi Yap", variant="primary")
+                analyze_btn = gr.Button("Perform Pareto Analysis", variant="primary")
             
             with gr.Row():
-                pareto_plot = gr.Plot(label="Pareto Analizi")
-                quadrant_plot = gr.Plot(label="Dört Çeyrek Analizi")
+                pareto_plot = gr.Plot(label="Pareto Analysis")
+                quadrant_plot = gr.Plot(label="Four Quadrant Analysis")
             
             with gr.Row():
-                recommendations = gr.Markdown(label="Önceliklendirme Önerileri")
+                recommendations = gr.Markdown(label="Prioritization Recommendations")
         
-        # Projeleri listele
+        # List projects
         def refresh_projects():
             projects = get_projects(user_id)
             choices = [(p['name'], p['id']) for p in projects]
             return gr.Dropdown(choices=choices)
         
-        # Proje ekle
+        # Add project
         def add_project_handler(name, description):
             if not name or name.strip() == "":
-                return "Proje adı boş olamaz!"
+                return "Project name cannot be empty!"
             
             success, message = add_project(user_id, name, description)
             return message
         
-        # Görevleri listele
+        # List tasks
         def refresh_tasks(project_id):
             if not project_id:
                 return pd.DataFrame()
@@ -514,33 +515,33 @@ def prioritylens_app():
             task_df = pd.DataFrame([
                 {
                     "ID": t['id'],
-                    "Görev": t['name'],
-                    "Etki": t['impact_score'],
-                    "Aciliyet": t['urgency_score'],
-                    "Çaba": t['effort_score'],
-                    "Uyum": t['alignment_score'],
-                    "Durum": t['status'],
-                    "Son Tarih": t['due_date'].strftime('%Y-%m-%d') if t['due_date'] else ""
+                    "Task": t['name'],
+                    "Impact": t['impact_score'],
+                    "Urgency": t['urgency_score'],
+                    "Effort": t['effort_score'],
+                    "Alignment": t['alignment_score'],
+                    "Status": t['status'],
+                    "Due Date": t['due_date'].strftime('%Y-%m-%d') if t['due_date'] else ""
                 }
                 for t in tasks
             ])
             return task_df
         
-        # Görev ekle
+        # Add task
         def add_task_handler(project_id, name, description, impact, urgency, effort, alignment, due_date):
             if not project_id:
-                return "Lütfen önce bir proje seçin!"
+                return "Please select a project first!"
             
             if not name or name.strip() == "":
-                return "Görev adı boş olamaz!"
+                return "Task name cannot be empty!"
             
-            # Son tarih kontrolü
+            # Due date validation
             parsed_date = None
             if due_date and due_date.strip() != "":
                 try:
                     parsed_date = datetime.datetime.strptime(due_date, "%Y-%m-%d").date()
                 except ValueError:
-                    return "Son tarih formatı geçersiz! Lütfen YYYY-MM-DD formatında girin."
+                    return "Invalid date format! Please use YYYY-MM-DD format."
             
             success, message = add_task(
                 project_id, name, description, 
@@ -549,21 +550,21 @@ def prioritylens_app():
             )
             return message
         
-        # Analiz yap
+        # Perform analysis
         def analyze_tasks(project_id):
             if not project_id:
-                return None, None, "Lütfen önce bir proje seçin!"
+                return None, None, "Please select a project first!"
             
             tasks = get_tasks(project_id)
             if not tasks:
-                return None, None, "Bu projede henüz görev bulunmuyor!"
+                return None, None, "No tasks found in this project!"
             
             pareto_fig, quadrant_fig = perform_pareto_analysis(tasks)
             recommendations_text = get_recommendations(tasks)
             
             return pareto_fig, quadrant_fig, recommendations_text
         
-        # Etkileşimleri tanımla
+        # Define interactions
         project_add_btn.click(add_project_handler, [project_name_input, project_desc_input], [project_status])
         refresh_projects_btn.click(refresh_projects, [], [projects_dropdown])
         
@@ -578,12 +579,12 @@ def prioritylens_app():
         
         analyze_btn.click(analyze_tasks, [projects_dropdown], [pareto_plot, quadrant_plot, recommendations])
         
-        # Başlangıçta projeleri yükle
+        # Load projects on startup
         app.load(refresh_projects, [], [projects_dropdown])
         
     return app
 
-# Uygulamayı başlat
+# Start the application
 if __name__ == "__main__":
     app = prioritylens_app()
     app.launch()
